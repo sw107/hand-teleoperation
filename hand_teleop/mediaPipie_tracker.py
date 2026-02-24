@@ -372,120 +372,122 @@ def on_hands(result, image, timestamp):
     global latest_hands
     latest_hands = result
 
-# Pose 설정
-pose_options = vision.PoseLandmarkerOptions(
-    base_options=python.BaseOptions(model_asset_path='pose_landmarker.task'),
-    running_mode=vision.RunningMode.LIVE_STREAM,
-    result_callback=on_pose
-)
 
-# Hands 설정
-hand_options = vision.HandLandmarkerOptions(
-    base_options=python.BaseOptions(model_asset_path='hand_landmarker.task'),
-    running_mode=vision.RunningMode.LIVE_STREAM,
-    num_hands=2,
-    result_callback=on_hands
-)
+if __name__ == "__main__":
+    # Pose 설정
+    pose_options = vision.PoseLandmarkerOptions(
+        base_options=python.BaseOptions(model_asset_path='models/pose_landmarker.task'),
+        running_mode=vision.RunningMode.LIVE_STREAM,
+        result_callback=on_pose
+    )
 
-pose_landmarker = vision.PoseLandmarker.create_from_options(pose_options)
-hand_landmarker = vision.HandLandmarker.create_from_options(hand_options)
+    # Hands 설정
+    hand_options = vision.HandLandmarkerOptions(
+        base_options=python.BaseOptions(model_asset_path='models/hand_landmarker.task'),
+        running_mode=vision.RunningMode.LIVE_STREAM,
+        num_hands=2,
+        result_callback=on_hands
+    )
+    
+    pose_landmarker = vision.PoseLandmarker.create_from_options(pose_options)
+    hand_landmarker = vision.HandLandmarker.create_from_options(hand_options)
 
-cap = cv2.VideoCapture(0)
-timestamp = 0
+    cap = cv2.VideoCapture(0)
+    timestamp = 0
 
-print("=" * 50)
-print("    SO101 텔레오퍼레이션 - 팔 각도 + 그리퍼 제어")
-print("=" * 50)
-print("\n제어 방법:")
-print("  - 팔 움직임: 어깨, 팔꿈치, 손목 각도 추적")
-print("  - 그리퍼: 엄지-검지 거리로 제어")
-print("    * 손 펴기 → 그리퍼 열림 (1.0)")
-print("    * 손 오므리기 → 그리퍼 닫힘 (0.0)")
-print("\n단축키:")
-print("  q: 종료")
-print("=" * 50)
-print()
+    print("=" * 50)
+    print("    SO101 텔레오퍼레이션 - 팔 각도 + 그리퍼 제어")
+    print("=" * 50)
+    print("\n제어 방법:")
+    print("  - 팔 움직임: 어깨, 팔꿈치, 손목 각도 추적")
+    print("  - 그리퍼: 엄지-검지 거리로 제어")
+    print("    * 손 펴기 → 그리퍼 열림 (1.0)")
+    print("    * 손 오므리기 → 그리퍼 닫힘 (0.0)")
+    print("\n단축키:")
+    print("  q: 종료")
+    print("=" * 50)
+    print()
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    timestamp += 1
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        timestamp += 1
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-    pose_landmarker.detect_async(mp_image, timestamp)
-    hand_landmarker.detect_async(mp_image, timestamp)
+        pose_landmarker.detect_async(mp_image, timestamp)
+        hand_landmarker.detect_async(mp_image, timestamp)
 
-    h, w, _ = frame.shape
+        h, w, _ = frame.shape
 
-    # Pose 그리기 + 각도 + 그리퍼 계산
-    if latest_pose and latest_pose.pose_landmarks:
-        pose_landmarks = latest_pose.pose_landmarks[0]
-        
-        # 연결선 그리기
-        for start, end in POSE_CONNECTIONS:
-            x1, y1 = int(pose_landmarks[start].x * w), int(pose_landmarks[start].y * h)
-            x2, y2 = int(pose_landmarks[end].x * w), int(pose_landmarks[end].y * h)
-            cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
-        # 점 그리기
-        for i, lm in enumerate(pose_landmarks):
-            if i in VISIBLE_POSE_LANDMARKS:
-                cv2.circle(frame, (int(lm.x * w), int(lm.y * h)), 5, (0, 0, 255), -1)
-        
-        # Hands 데이터
-        hand_landmarks_list = latest_hands.hand_landmarks if latest_hands else None
-        
-        # 팔 각도 + 그리퍼 계산
-        angles = calculate_arm_and_gripper(pose_landmarks, hand_landmarks_list, w, h)
-        
-        # 각도 표시
-        frame = draw_angles_on_frame(frame, pose_landmarks, angles, w, h)
-        
-        # 패널 표시
-        frame = display_angles_panel(frame, angles)
-        
-        # 그리퍼 시각화 (엄지-검지 선)
-        if hand_landmarks_list:
-            for hand in hand_landmarks_list:
-                # 오른손인지 왼손인지 판별 (간단히 x 좌표로)
-                hand_x = hand[0].x
-                is_right = hand_x < 0.5  # 화면 왼쪽이면 오른손 (미러 모드)
-                
-                if is_right and 'right_gripper' in angles:
-                    visualize_gripper(frame, hand, angles['right_gripper'], w, h, 'right')
-                elif not is_right and 'left_gripper' in angles:
-                    visualize_gripper(frame, hand, angles['left_gripper'], w, h, 'left')
-        
-        # 콘솔 출력 (매 30프레임마다)
-        if timestamp % 30 == 0:
-            print(f"\n--- Frame {timestamp} ---")
-            if 'right_elbow' in angles:
-                print("RIGHT ARM:")
-                for key in ['right_shoulder_pan', 'right_shoulder_lift', 'right_elbow', 
-                           'right_wrist_pitch', 'right_wrist_roll']:
-                    if key in angles:
-                        print(f"  {key}: {angles[key]:.2f}°")
-                if 'right_gripper' in angles:
-                    print(f"  right_gripper: {angles['right_gripper']:.3f} ({'OPEN' if angles['right_gripper'] > 0.7 else 'CLOSED' if angles['right_gripper'] < 0.3 else 'PARTIAL'})")
+        # Pose 그리기 + 각도 + 그리퍼 계산
+        if latest_pose and latest_pose.pose_landmarks:
+            pose_landmarks = latest_pose.pose_landmarks[0]
             
-            # if 'left_elbow' in angles:
-            #     print("LEFT ARM:")
-            #     for key in ['left_shoulder_pan', 'left_shoulder_lift', 'left_elbow', 
-            #                'left_wrist_pitch', 'left_wrist_roll']:
-            #         if key in angles:
-            #             print(f"  {key}: {angles[key]:.2f}°")
-            #     if 'left_gripper' in angles:
-            #         print(f"  left_gripper: {angles['left_gripper']:.3f} ({'OPEN' if angles['left_gripper'] > 0.7 else 'CLOSED' if angles['left_gripper'] < 0.3 else 'PARTIAL'})")
+            # 연결선 그리기
+            for start, end in POSE_CONNECTIONS:
+                x1, y1 = int(pose_landmarks[start].x * w), int(pose_landmarks[start].y * h)
+                x2, y2 = int(pose_landmarks[end].x * w), int(pose_landmarks[end].y * h)
+                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            # 점 그리기
+            for i, lm in enumerate(pose_landmarks):
+                if i in VISIBLE_POSE_LANDMARKS:
+                    cv2.circle(frame, (int(lm.x * w), int(lm.y * h)), 5, (0, 0, 255), -1)
+            
+            # Hands 데이터
+            hand_landmarks_list = latest_hands.hand_landmarks if latest_hands else None
+            
+            # 팔 각도 + 그리퍼 계산
+            angles = calculate_arm_and_gripper(pose_landmarks, hand_landmarks_list, w, h)
+            
+            # 각도 표시
+            frame = draw_angles_on_frame(frame, pose_landmarks, angles, w, h)
+            
+            # 패널 표시
+            frame = display_angles_panel(frame, angles)
+            
+            # 그리퍼 시각화 (엄지-검지 선)
+            if hand_landmarks_list:
+                for hand in hand_landmarks_list:
+                    # 오른손인지 왼손인지 판별 (간단히 x 좌표로)
+                    hand_x = hand[0].x
+                    is_right = hand_x < 0.5  # 화면 왼쪽이면 오른손 (미러 모드)
+                    
+                    if is_right and 'right_gripper' in angles:
+                        visualize_gripper(frame, hand, angles['right_gripper'], w, h, 'right')
+                    elif not is_right and 'left_gripper' in angles:
+                        visualize_gripper(frame, hand, angles['left_gripper'], w, h, 'left')
+            
+            # 콘솔 출력 (매 30프레임마다)
+            if timestamp % 30 == 0:
+                print(f"\n--- Frame {timestamp} ---")
+                if 'right_elbow' in angles:
+                    print("RIGHT ARM:")
+                    for key in ['right_shoulder_pan', 'right_shoulder_lift', 'right_elbow', 
+                            'right_wrist_pitch', 'right_wrist_roll']:
+                        if key in angles:
+                            print(f"  {key}: {angles[key]:.2f}°")
+                    if 'right_gripper' in angles:
+                        print(f"  right_gripper: {angles['right_gripper']:.3f} ({'OPEN' if angles['right_gripper'] > 0.7 else 'CLOSED' if angles['right_gripper'] < 0.3 else 'PARTIAL'})")
+                
+                # if 'left_elbow' in angles:
+                #     print("LEFT ARM:")
+                #     for key in ['left_shoulder_pan', 'left_shoulder_lift', 'left_elbow', 
+                #                'left_wrist_pitch', 'left_wrist_roll']:
+                #         if key in angles:
+                #             print(f"  {key}: {angles[key]:.2f}°")
+                #     if 'left_gripper' in angles:
+                #         print(f"  left_gripper: {angles['left_gripper']:.3f} ({'OPEN' if angles['left_gripper'] > 0.7 else 'CLOSED' if angles['left_gripper'] < 0.3 else 'PARTIAL'})")
 
 
-    cv2.imshow('SO101 Teleoperation - Full Control', frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        cv2.imshow('SO101 Teleoperation - Full Control', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-cap.release()
-cv2.destroyAllWindows()
+    cap.release()
+    cv2.destroyAllWindows()
 
-print("\n프로그램 종료")
+    print("\n프로그램 종료")
