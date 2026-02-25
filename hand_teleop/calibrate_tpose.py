@@ -18,11 +18,11 @@ from mediaPipie_tracker import (
 
 # T-Pose 기준 각도
 TPOSE_REFERENCE = {
-    'right_shoulder_pan': (155, 175),
-    'right_shoulder_lift': (85, 105),
-    'right_elbow': (130, 150),
-    'right_wrist_pitch': (20, 40),
-    'right_wrist_roll': (50, 70),
+    'right_shoulder_pan': (90, 110),       # 98.1° 기준
+    'right_shoulder_lift': (120, 145),     # 131.7° 기준 ⭐
+    'right_elbow': (130, 145),             # 137.4° 기준 ⭐
+    'right_wrist_pitch': (15, 35),         # 24.4° 기준 ⭐
+    'right_wrist_roll': (95, 110),
 }
 
 # 전역 변수
