@@ -84,7 +84,9 @@ hand-teleoperation/
 │   ├── pose_landmarker.task   # Pose 추적 모델
 │   └── hand_landmarker.task   # Hand 추적 모델
 ├── hand_teleop
-│   ├── test_tracking.py           # 추적 테스트 스크립트
+│   ├── calibrate_human.py
+│   ├── calibrate_robot.py
+│   ├── mediaPipe_tracker.py
 ├── download_models.py         # 모델 다운로드 스크립트
 └── README.md
 ```
