@@ -1,27 +1,3 @@
-"""
-calibrate_robot.py
-==================
-SO101 follower arm 캘리브레이션.
-
-로봇 캘리브레이션 철학:
-  - 토크를 OFF해서 모터를 손으로 자유롭게 움직일 수 있게 함
-  - center(중앙) 자세 → Enter로 기록
-  - 각 모터를 min ~ max 범위로 직접 움직이며 기록
-  - 결과를 JSON으로 저장
-
-SO101 모터 구성:
-  ID 1  shoulder_pan   (sts3215)
-  ID 2  shoulder_lift  (sts3215)
-  ID 3  elbow_flex     (sts3215)
-  ID 4  wrist_flex     (sts3215)
-  ID 5  wrist_roll     (sts3215)
-  ID 6  gripper        (sts3215)
-
-STS3215 엔코더: 0 ~ 4095 (12-bit, 1회전 = 4096 steps)
-
-저장 위치: hand_teleop/calibration/robot_calib.json
-"""
-
 import json
 import os
 import time
@@ -73,7 +49,6 @@ MOTOR_IDS = {name: i + 1 for i, name in enumerate(MOTOR_NAMES)}
 CENTER_INSTRUCTION = """
   팔꿈치를 어깨 높이로 들고,
   팔꿈치 90도로 굽혀 전완을 정면으로 뻗은 자세.
-  (아까 보내준 사진의 그 자세)
 """
 
 # 각 모터의 min/max 안내
