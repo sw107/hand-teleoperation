@@ -207,6 +207,6 @@ poetry.toml
 pyrightconfig.json
 
 models/*.task
-calibration.yaml
+calibration/
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,python
